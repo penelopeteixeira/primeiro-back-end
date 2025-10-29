@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Conferência de Preços na Gôndola</title>
+  <style>
+    :root { --gap: 12px; --radius: 12px; --shadow: 0 2px 10px rgba(0,0,0,.06); }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #fafafa; color: #111; }
+    header { padding: 20px; text-align: center; background: #fff; border-bottom: 1px solid #eee; position: sticky; top: 0; z-index: 5; }
+    main { padding: 20px; max-width: 960px; margin: 0 auto; }
+    .card { background: #fff; border: 1px solid #eee; border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+    .hidden { display: none !important; }
+.btn { appearance: none; border: 0; background: #4CAF50; color: #fff; padding: 12px 16px; border-radius: 10px; cursor: pointer; font-weight: 600; }
+.btn.secondary { background: #e9e9e9; color: #111; }
+.btn.ghost { background: transparent; color: #111; border: 1px solid #ddd; }
+.btn.danger { background: #e53935; }
+
+/* === Cores de ação na tela de resumo (semáforo) === */
+.btn.back-home {
+  background: #FFD54F;
+  color: #111;
+}
+.btn.back-home:hover {
+  background: #FFCA28;
+}
+
+.btn.add-more {
+  background: #2196F3;
+  color: #fff;
+}
+.btn.add-more:hover {
+  background: #1976D2;
+}
+
+.btn.save-pdf {
+  background: #4CAF50;
+  color: #fff;
+}
+.btn.save-pdf:hover {
+  background: #388E3C;
+}
+
+.btn.danger:hover {
+  background: #c62828;
+}
+
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .grid { display: grid; gap: var(--gap); }
+    .grid.cols-2 { grid-template-columns: 1fr 1fr; }
+    .field { display: grid; gap: 6px; }
+    label { font-size: 14px; color: #333; }
+    input[type="text"], input[type="number"], input[type="file"] {
+      width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 10px; font-size: 16px; background: #fff;
+    }
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .kpi { display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0 0; }
+    .kpi .pill { background: #f2f2f2; padding: 8px 12px; border-radius: 999px; font-weight: 600; }
+    .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 24px; background: #111; color: #fff;
+      padding: 12px 16px; border-radius: 999px; opacity: 0; pointer-events: none; transition: opacity .25s ease; z-index: 10; }
+    .toast.show { opacity: 1; pointer-events: auto; }
+    .muted { color: #666; font-size: 12px; }
+    .subtitle { color: #444; margin: 4px 0 16px; }
+    .thumb { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; border: 1px solid #eee; background: #fafafa; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid #eee; padding: 10px; text-align: left; vertical-align: middle; }
+    tfoot td { font-weight: 700; }
+    .right { text-align: right; }
+
+    /* Barra fixa no rodapé da Tela 2 (botões lado a lado) */
+    .form-footer {
+      position: sticky; bottom: -1px; left: 0; right: 0; background: #fff; padding: 10px;
+      margin: 16px -16px -16px; border-top: 1px solid #eee; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+      border-radius: 0 0 var(--radius) var(--radius);
+    }
+
+    /* Imprimir apenas o resumo */
+    @media print {
+      header, #screen-home, #screen-form, .toast { display: none !important; }
+      #screen-summary { display: block !important; box-shadow: none; border: 0; }
+      .btn, .actions, .form-footer { display: none !important; }
+      body { background: #fff; }
+      main { padding: 0; }
+      .card { border: 0; box-shadow: none; }
+    }
+
+    /* ===== Header actions alinhado à direita ===== */
+header { position: sticky; top: 0; z-index: 5; }
+.header-actions { margin-top: 8px; display: flex; justify-content: center; gap: 8px; }
+@media (min-width: 720px) {
+  header { display: grid; grid-template-columns: 1fr auto; align-items: center; }
+  .header-actions { margin-top: 0; justify-content: end; }
+}
+
+/* ===== Tema escuro (override não-invasivo) ===== */
+/* Regra base: tudo continua light. No dark, só sobrepomos as cores principais. */
+:root {
+  color-scheme: light dark; /* permite UI nativa do SO (inputs, selects) */
+}
+
+/* Preferência do sistema quando em modo 'auto' (JS adiciona data-theme=auto por padrão) */
+:root[data-theme="auto"] { }
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] body { background: #0f1115; color: #e7e9ee; }
+  :root[data-theme="auto"] header { background: #12151b; border-bottom-color: #1e2230; }
+  :root[data-theme="auto"] .card { background: #141823; border-color: #1e2230; box-shadow: none; }
+  :root[data-theme="auto"] .muted { color: #aab1c0; }
+  :root[data-theme="auto"] input[type="text"],
+  :root[data-theme="auto"] input[type="number"],
+  :root[data-theme="auto"] input[type="file"] {background: #0f131d; color: #e7e9ee; border-color: #2a3143;  }
+  :root[data-theme="auto"] table th,
+  :root[data-theme="auto"] table td { border-bottom-color: #22283a; }
+  :root[data-theme="auto"] .toast { background: #22283a; color: #e7e9ee; }
+  :root[data-theme="auto"] .kpi .pill { background: #1b2130; color: #e7e9ee; }
+  :root[data-theme="auto"] .form-footer {background: #151722;  }
+
+  /* Botões de semáforo no dark (mesmas cores, com leve ajuste/hover) */
+  :root[data-theme="auto"] .btn.back-home { background: #FFCF4D; color: #111; }
+  :root[data-theme="auto"] .btn.back-home:hover { background: #FFC533; }
+  :root[data-theme="auto"] .btn.add-more { background: #2B9AF6; }
+  :root[data-theme="auto"] .btn.add-more:hover { background: #1E7FD3; }
+  :root[data-theme="auto"] .btn.save-pdf { background: #49B055; }
+  :root[data-theme="auto"] .btn.save-pdf:hover { background: #3B9446; }
+  :root[data-theme="auto"] .btn.secondary { background: #242A3A; color: #e7e9ee; }
+  :root[data-theme="auto"] .btn.ghost { color: #e7e9ee; border-color: #2a3143; }
+  :root[data-theme="auto"] .btn.danger { background: #e53935; }
+  :root[data-theme="auto"] .btn.danger:hover { background: #c62828; }
+  :root[data-theme="auto"] .home-subtitle,
+  :root[data-theme="dark"] .home-subtitle {  color: #e7e9ee;}
+  :root[data-theme="dark"] .form-footer {background: #151722;}
+
+/* Força tema claro/escuro quando o usuário escolhe explicitamente (JS seta data-theme) */
+:root[data-theme="light"] body { background: #fafafa; color: #111; }
+:root[data-theme="light"] header { background: #fff; border-bottom: 1px solid #eee; }
+:root[data-theme="light"] .card { background: #fff; border: 1px solid #eee; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+:root[data-theme="light"] .muted { color: #666; }
+:root[data-theme="light"] input[type="text"],
+:root[data-theme="light"] input[type="number"],
+:root[data-theme="light"] input[type="file"] { background: #fff; color: #111; border-color: #ddd; }
+:root[data-theme="light"] table th,
+:root[data-theme="light"] table td { border-bottom-color: #eee; }
+:root[data-theme="light"] .toast { background: #111; color: #fff; }
+:root[data-theme="light"] .kpi .pill { background: #f2f2f2; color: #111; }
+:root[data-theme="dark"] body { background: #0f1115; color: #e7e9ee; }
+:root[data-theme="dark"] header { background: #12151b; border-bottom: 1px solid #1e2230; }
+:root[data-theme="dark"] .card { background: #141823; border: 1px solid #1e2230; box-shadow: none; }
+:root[data-theme="dark"] .muted { color: #aab1c0; }
+:root[data-theme="dark"] input[type="text"],
+:root[data-theme="dark"] input[type="number"],
+:root[data-theme="dark"] input[type="file"] { background: #0f131d; color: #e7e9ee; border-color: #2a3143; }
+:root[data-theme="dark"] table th,
+:root[data-theme="dark"] table td { border-bottom-color: #22283a; }
+:root[data-theme="dark"] .toast { background: #22283a; color: #e7e9ee; }
+:root[data-theme="dark"] .kpi .pill { background: #1b2130; color: #e7e9ee; }
+:root[data-theme="auto"] .home-subtitle,
+:root[data-theme="dark"] .home-subtitle {  color: #e7e9ee;}
+
+/* Botões semáforo no dark (quando tema é forçado) */
+:root[data-theme="dark"] .btn.back-home { background: #FFCF4D; color: #111; }
+:root[data-theme="dark"] .btn.back-home:hover { background: #FFC533; }
+:root[data-theme="dark"] .btn.add-more { background: #2B9AF6; }
+:root[data-theme="dark"] .btn.add-more:hover { background: #1E7FD3; }
+:root[data-theme="dark"] .btn.save-pdf { background: #49B055; }
+:root[data-theme="dark"] .btn.save-pdf:hover { background: #3B9446; }
+:root[data-theme="dark"] .btn.secondary { background: #242A3A; color: #e7e9ee; }
+:root[data-theme="dark"] .btn.ghost { color: #e7e9ee; border-color: #2a3143; }
+:root[data-theme="dark"] .btn.danger { background: #e53935; }
+:root[data-theme="dark"] .btn.danger:hover { background: #c62828; }
+</style>
+</head>
+
+<body>
+  <header>
+    <h1>Conferência de Preços na Gôndola</h1>
+    <div class="header-actions">
+  <button id="theme-toggle" class="btn ghost" title="Alternar tema">🌓 Tema: Auto</button>
+</div>
+
+    <div class="muted">Registre as etiquetas de gôndola para conferir no caixa.</div>
+  </header>
+
+  <main>
+    <!-- TELA 1: HOME -->
+    <section id="screen-home" class="card">
+      <h2>Bem-vinde 🛒</h2>
+      <p class="home-subtitle">Comece uma conferência nova ou retome a atual.</p>
+      <div class="actions">
+        <button class="btn go" id="go-to-form">Vamos às compras</button>
+        <button class="btn ghost" id="go-to-summary">Ver últimos itens</button>
+        <button class="btn secondary" id="clear-data">Limpar compra</button>
+      </div>
+      <div class="kpi">
+        <div class="pill" id="home-count">0 itens</div>
+        <div class="pill" id="home-total">Total: R$ 0,00</div>
+      </div>
+    </section>
+
+    <!-- TELA 2: FORM -->
+    <section id="screen-form" class="card hidden" aria-label="Registro de itens">
+      <h2>Adicionar item</h2>
+      <form id="item-form" novalidate>
+        <div class="grid">
+          <div class="field">
+            <label for="produto">Produto</label>
+            <input type="text" id="produto" name="produto" placeholder="Ex.: Arroz Tipo 1 5kg" required autocomplete="off" />
+          </div>
+
+          <div class="grid cols-2">
+            <div class="field">
+              <label for="quantidade">Quantidade</label>
+              <input type="number" id="quantidade" name="quantidade" min="1" step="1" inputmode="numeric" required />
+            </div>
+            <div class="field">
+              <label for="preco">Preço na gôndola (R$)</label>
+              <input type="text" id="preco" name="preco" inputmode="decimal" placeholder="Ex.: 19,90" required />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="foto">Foto da etiqueta (gôndola)</label>
+            <input type="file" id="foto" name="foto" accept="image/*" capture="environment" required />
+            <div class="muted">A foto será comprimida (máx. 1024px, qualidade ~0,7) para caber no dispositivo.</div>
+          </div>
+        </div>
+
+        <div class="kpi">
+          <div class="pill" id="form-count">0 itens</div>
+          <div class="pill" id="form-total">Total: R$ 0,00</div>
+        </div>
+
+        <!-- Botões lado a lado, colados ao rodapé da carta -->
+        <div class="form-footer">
+          <button type="submit" class="btn" id="add-to-cart">Adicionar ao carrinho</button>
+          <button type="button" class="btn secondary" id="go-summary-from-form">Finalizar compras</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- TELA 3: RESUMO -->
+    <section id="screen-summary" class="card hidden" aria-label="Resumo da compra">
+      <h2>Resumo da compra</h2>
+      <div class="actions" style="margin-bottom:8px">
+        <button class="btn back-home" id="back-home">Voltar à página inicial</button>
+        <button class="btn add-more" id="add-more">Adicionar mais itens</button>
+        <button class="btn save-pdf" id="print-pdf">Salvar/Exportar (PDF)</button>
+        <button class="btn danger" id="clear-data-2">Limpar compra</button>
+      </div>
+
+
+      <div id="summary-empty" class="muted">Nenhum item adicionado ainda.</div>
+
+      <div id="summary-content" class="hidden">
+        <div class="muted" style="margin-bottom:8px">Edite quantidade e preço clicando nos campos. Clique na foto para abrir em nova guia.</div>
+        <div class="card" style="padding:0">
+          <table id="summary-table">
+            <thead>
+              <tr>
+                <th>Foto</th>
+                <th>Produto</th>
+                <th style="width:120px">Qtd.</th>
+                <th style="width:160px">Preço (R$)</th>
+                <th class="right" style="width:140px">Subtotal</th>
+                <th style="width:56px"></th>
+              </tr>
+            </thead>
+            <tbody id="summary-body"></tbody>
+            <tfoot>
+              <tr>
+                <td colspan="4" class="right">Total</td>
+                <td class="right" id="summary-total">R$ 0,00</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Toast -->
+  <div id="toast" class="toast" role="status" aria-live="polite">Item adicionado ao carrinho ✅</div>
+
+  <script>
+    // ---------------------- Formatação de moeda ----------------------
+    const fmtBRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+    const toDisplayBRL = (num) => fmtBRL.format(Number(num || 0));
+    // Aceita "19,90" ou "1.234,56" e retorna Number 1234.56
+    const parseBRLInput = (str) => {
+      if (typeof str !== 'string') return 0;
+      const cleaned = str.trim().replace(/\./g, '').replace(',', '.');
+      const num = Number(cleaned);
+      return Number.isFinite(num) ? num : 0;
+    };
+    // Máscara simples pt-BR para campo de preço (sem R$ dentro do input)
+    const formatPriceInput = (inputEl) => {
+      const val = inputEl.value;
+      const num = parseBRLInput(val);
+      if (!Number.isFinite(num)) return;
+      inputEl.value = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+    };
+
+    // ---------------------- Persistência ----------------------
+    const STORAGE_KEY = 'gondola_cart_v1';
+    const loadCart = () => {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }
+    };
+    const saveCart = (cart) => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cart));
+      updateHomeKPIs(cart);
+      updateFormKPIs(cart);
+    };
+
+    // ---------------------- Estado e refs ----------------------
+    const sections = {
+      home: document.getElementById('screen-home'),
+      form: document.getElementById('screen-form'),
+      summary: document.getElementById('screen-summary'),
+    };
+    const toastEl = document.getElementById('toast');
+    const produtoEl = document.getElementById('produto');
+    const qtdEl = document.getElementById('quantidade');
+    const precoEl = document.getElementById('preco');
+    const fotoEl = document.getElementById('foto');
+    const formEl = document.getElementById('item-form');
+
+    let cart = loadCart(); // [{id, produto, quantidade, preco, fotoDataUrl}]
+
+    // ---------------------- Navegação (SPA) ----------------------
+    const goto = (screen) => {
+      sections.home.classList.toggle('hidden', screen !== 'home');
+      sections.form.classList.toggle('hidden', screen !== 'form');
+      sections.summary.classList.toggle('hidden', screen !== 'summary');
+      if (screen === 'form') setTimeout(() => produtoEl?.focus(), 50);
+      if (screen === 'summary') renderSummary();
+    };
+
+    // ---------------------- KPIs ----------------------
+    const sumCart = (list) => list.reduce((acc, it) => acc + Number(it.quantidade || 0) * Number(it.preco || 0), 0);
+    const countCart = (list) => list.reduce((acc, it) => acc + Number(it.quantidade || 0), 0);
+
+    const updateHomeKPIs = (list) => {
+      document.getElementById('home-count').textContent = `${list.length} ${list.length === 1 ? 'item' : 'itens'}`;
+      document.getElementById('home-total').textContent = `Total: ${toDisplayBRL(sumCart(list))}`;
+    };
+    const updateFormKPIs = (list) => {
+      document.getElementById('form-count').textContent = `${list.length} ${list.length === 1 ? 'item' : 'itens'}`;
+      document.getElementById('form-total').textContent = `Total: ${toDisplayBRL(sumCart(list))}`;
+    };
+
+    updateHomeKPIs(cart);
+    updateFormKPIs(cart);
+
+    // ---------------------- Toast ----------------------
+    let toastTimer = null;
+    const showToast = (msg = 'Item adicionado ao carrinho ✅') => {
+      toastEl.textContent = msg;
+      toastEl.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1600);
+    };
+
+    // ---------------------- Compressão de imagem balanceada ----------------------
+    async function compressImage(file, maxDim = 1024, quality = 0.7) {
+      const img = await new Promise((res, rej) => {
+        const url = URL.createObjectURL(file);
+        const i = new Image();
+        i.onload = () => res(i);
+        i.onerror = rej;
+        i.src = url;
+      });
+      const { width, height } = img;
+      let w = width, h = height;
+      if (Math.max(w, h) > maxDim) {
+        if (w > h) { h = Math.round((maxDim / w) * h); w = maxDim; }
+        else { w = Math.round((maxDim / h) * w); h = maxDim; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      // JPEG para melhor taxa/compressão
+      const dataUrl = canvas.toDataURL('image/jpeg', quality);
+      return dataUrl; // dataURL (string) armazenável no localStorage
+    }
+
+    // ---------------------- Handlers: adicionar item ----------------------
+    precoEl.addEventListener('blur', () => formatPriceInput(precoEl));
+
+    formEl.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      // Validação simples
+      if (!produtoEl.value.trim() || !qtdEl.value || !precoEl.value || !fotoEl.files?.[0]) {
+        formEl.reportValidity?.();
+        return;
+      }
+      const quantidade = Math.max(1, Number(qtdEl.value));
+      const preco = parseBRLInput(precoEl.value);
+
+      let fotoDataUrl = '';
+      try {
+        fotoDataUrl = await compressImage(fotoEl.files[0], 1024, 0.7);
+      } catch {
+        alert('Não foi possível processar a imagem. Tente novamente.');
+        return;
+      }
+
+      const item = {
+        id: crypto.randomUUID(),
+        produto: produtoEl.value.trim(),
+        quantidade,
+        preco, // número com ponto
+        fotoDataUrl,
+        createdAt: new Date().toISOString(),
+      };
+      cart.push(item);
+      saveCart(cart);
+
+      // Reset do formulário + foco no produto
+      formEl.reset();
+      produtoEl.focus();
+      showToast();
+
+      // Atualiza KPIs
+      updateFormKPIs(cart);
+    });
+
+    // ---------------------- Navegação (botões) ----------------------
+    document.getElementById('go-to-form').addEventListener('click', () => goto('form'));
+    document.getElementById('go-to-summary').addEventListener('click', () => goto('summary'));
+    document.getElementById('go-summary-from-form').addEventListener('click', () => goto('summary'));
+    document.getElementById('add-more').addEventListener('click', () => goto('form'));
+    document.getElementById('print-pdf').addEventListener('click', () => window.print());
+    document.getElementById('back-home').addEventListener('click', () => goto('home'));
+
+    // Limpar compra (confirmação)
+    const clearAll = () => {
+      if (!cart.length) return;
+      if (confirm('Tem certeza que deseja limpar toda a compra? Essa ação não pode ser desfeita.')) {
+        cart = [];
+        saveCart(cart);
+        renderSummary();
+        formEl.reset();
+        updateHomeKPIs(cart);
+        updateFormKPIs(cart);
+      }
+    };
+    document.getElementById('clear-data').addEventListener('click', clearAll);
+    document.getElementById('clear-data-2').addEventListener('click', clearAll);
+
+    // ---------------------- Render do Resumo ----------------------
+    function renderSummary() {
+      const empty = document.getElementById('summary-empty');
+      const content = document.getElementById('summary-content');
+      const tbody = document.getElementById('summary-body');
+      const totalEl = document.getElementById('summary-total');
+
+      if (!cart.length) {
+        empty.classList.remove('hidden');
+        content.classList.add('hidden');
+        totalEl.textContent = toDisplayBRL(0);
+        tbody.innerHTML = '';
+        return;
+      }
+      empty.classList.add('hidden');
+      content.classList.remove('hidden');
+
+      tbody.innerHTML = '';
+      cart.forEach((it, idx) => {
+        const tr = document.createElement('tr');
+
+        // Foto com link (abre em nova guia)
+        const tdFoto = document.createElement('td');
+        const a = document.createElement('a');
+        a.href = it.fotoDataUrl;
+        a.target = '_blank';
+        const img = document.createElement('img');
+        img.src = it.fotoDataUrl;
+        img.alt = `Foto do preço de ${it.produto}`;
+        img.className = 'thumb';
+        a.appendChild(img);
+        tdFoto.appendChild(a);
+
+        // Produto (texto)
+        const tdProd = document.createElement('td');
+        tdProd.textContent = it.produto;
+
+        // Quantidade (editável)
+        const tdQtd = document.createElement('td');
+        const inpQtd = document.createElement('input');
+        inpQtd.type = 'number';
+        inpQtd.min = '1';
+        inpQtd.step = '1';
+        inpQtd.value = it.quantidade;
+        inpQtd.style.width = '100%';
+        inpQtd.addEventListener('change', () => {
+          const v = Math.max(1, Number(inpQtd.value || 1));
+          cart[idx].quantidade = v;
+          saveCart(cart);
+          renderSummary();
+        });
+        tdQtd.appendChild(inpQtd);
+
+        // Preço (editável com máscara pt-BR)
+        const tdPreco = document.createElement('td');
+        const inpPreco = document.createElement('input');
+        inpPreco.type = 'text';
+        inpPreco.value = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(it.preco);
+        inpPreco.style.width = '100%';
+        inpPreco.addEventListener('blur', () => {
+          formatPriceInput(inpPreco);
+          const num = parseBRLInput(inpPreco.value);
+          cart[idx].preco = num;
+          saveCart(cart);
+          renderSummary();
+        });
+        tdPreco.appendChild(inpPreco);
+
+        // Subtotal (texto)
+        const tdSub = document.createElement('td');
+        tdSub.className = 'right';
+        tdSub.textContent = toDisplayBRL(it.quantidade * it.preco);
+
+        // Remover
+        const tdDel = document.createElement('td');
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn ghost';
+        delBtn.textContent = 'Remover';
+        delBtn.addEventListener('click', () => {
+          if (confirm(`Remover "${it.produto}" do carrinho?`)) {
+            cart.splice(idx, 1);
+            saveCart(cart);
+            renderSummary();
+            updateFormKPIs(cart);
+          }
+        });
+        tdDel.appendChild(delBtn);
+
+        tr.appendChild(tdFoto);
+        tr.appendChild(tdProd);
+        tr.appendChild(tdQtd);
+        tr.appendChild(tdPreco);
+        tr.appendChild(tdSub);
+        tr.appendChild(tdDel);
+
+        tbody.appendChild(tr);
+      });
+
+      totalEl.textContent = toDisplayBRL(sumCart(cart));
+      // Atualiza KPIs da Home também
+      updateHomeKPIs(cart);
+    }
+
+    // Início: tela home
+    goto('home');
+
+    // ===== Tema: Auto → Light → Dark (persistido) =====
+(function () {
+  const THEME_KEY = 'gondola_theme_pref'; // 'auto' | 'light' | 'dark'
+  const btn = document.getElementById('theme-toggle');
+  const root = document.documentElement;
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+
+  function applyTheme(pref) {
+    // pref: 'auto' | 'light' | 'dark'
+    root.setAttribute('data-theme', pref);
+    btn.textContent = `🌓 Tema: ${pref === 'auto' ? 'Auto' : pref === 'light' ? 'Claro' : 'Escuro'}`;
+    btn.title = 'Alternar tema';
+  }
+
+  function loadPref() {
+    return localStorage.getItem(THEME_KEY) || 'auto';
+  }
+
+  function savePref(pref) {
+    localStorage.setItem(THEME_KEY, pref);
+  }
+
+  // Alterna a cada clique
+  btn.addEventListener('click', () => {
+    const cur = loadPref();
+    const next = cur === 'auto' ? 'light' : cur === 'light' ? 'dark' : 'auto';
+    savePref(next);
+    applyTheme(next);
+  });
+
+  // Reage a mudança do SO quando em auto
+  mq.addEventListener?.('change', () => {
+    if (loadPref() === 'auto') applyTheme('auto');
+  });
+
+  // Inicialização
+  applyTheme(loadPref());
+})();
+
+  </script>
+</body>
+</html>

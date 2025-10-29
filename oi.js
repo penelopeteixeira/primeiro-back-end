@@ -1,0 +1,1 @@
+console.log("Pelo que entendi, posso escrever qualquer coisa aqui que vai aparecer no terminal")
